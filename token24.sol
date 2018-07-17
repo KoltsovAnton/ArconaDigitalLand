@@ -107,11 +107,7 @@ contract LandBase is Ownable {
     event Approval(address indexed owner, address indexed approved, uint256 landId);
 
     struct Land {
-        string coords1;
-        string coords2;
-        string coords3;
-        string coords4;
-        string name;
+        uint id;
     }
 
 
@@ -295,18 +291,13 @@ contract LandBase is Ownable {
     }
 
 
-    function createLand(address _owner, string _name, string _coords1, string _coords2,
-                        string _coords3, string _coords4) onlyOwner external returns (uint) {
+    function createLand(address _owner, uint _id) onlyOwner external returns (uint) {
         require(_owner != address(0));
         uint256 _landId = lastLandId++;
         addLand(_owner, _landId);
         //store new land data
         lands[_landId] = Land({
-            coords1 : _coords1,
-            coords2 : _coords2,
-            coords3 : _coords3,
-            coords4 : _coords4,
-            name : _name
+            id : _id
         });
         emit Transfer(address(0), _owner, _landId);
         return _landId;

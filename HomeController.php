@@ -21,7 +21,7 @@ class HomeController
     {
 
     }
- 
+
 
     //"ac8e26d0": "createLand(address,string,string,string,string,string)",
     public function createLand()
@@ -36,11 +36,12 @@ class HomeController
 
         //параметры для метода createLand
         $owner = $this->createAddrParam('0x02A3D45252Fa254bA7Bb42C5D8D3ED2c0FCdC8Df');
-        $name =  'test1';
-        $cord1 = '47.244717, 39.701625';
-        $cord2 = '47.244717, 39.701625';
-        $cord3 = '47.244717, 39.701625';
-        $cord4 = '47.244717, 39.701625';
+        $id = $this->createParam(dechex(123));
+//        $name =  'test1';
+//        $cord1 = '47.244717, 39.701625';
+//        $cord2 = '47.244717, 39.701625';
+//        $cord3 = '47.244717, 39.701625';
+//        $cord4 = '47.244717, 39.701625';
 
 
         $rpc = new JSON_RPC('https://rinkeby.infura.io/oLaEtrL2ogdAD8qZpXk2');
@@ -52,26 +53,26 @@ class HomeController
         $gasPrice = $rpc->request('eth_gasPrice');
 
 
-        $lenName  = $this->createParam(dechex(strlen($name)));
-        $lencord1 = $this->createParam(dechex(strlen($cord1)));
-        $lencord2 = $this->createParam(dechex(strlen($cord2)));
-        $lencord3 = $this->createParam(dechex(strlen($cord3)));
-        $lencord4 = $this->createParam(dechex(strlen($cord4)));
-
-        $name =  $this->createLeftParam(bin2hex($name));
-        $cord1 = $this->createLeftParam(bin2hex($cord1));
-        $cord2 = $this->createLeftParam(bin2hex($cord2));
-        $cord3 = $this->createLeftParam(bin2hex($cord3));
-        $cord4 = $this->createLeftParam(bin2hex($cord4));
-        $offset = '00000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c0';
+//        $lenName  = $this->createParam(dechex(strlen($name)));
+//        $lencord1 = $this->createParam(dechex(strlen($cord1)));
+//        $lencord2 = $this->createParam(dechex(strlen($cord2)));
+//        $lencord3 = $this->createParam(dechex(strlen($cord3)));
+//        $lencord4 = $this->createParam(dechex(strlen($cord4)));
+//
+//        $name =  $this->createLeftParam(bin2hex($name));
+//        $cord1 = $this->createLeftParam(bin2hex($cord1));
+//        $cord2 = $this->createLeftParam(bin2hex($cord2));
+//        $cord3 = $this->createLeftParam(bin2hex($cord3));
+//        $cord4 = $this->createLeftParam(bin2hex($cord4));
+//        $offset = '00000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c0';
 
         $nonce    = $nonce['result'];
         $gasPrice = $gasPrice['result'];
         $gasLimit = '0x493E0';
         $to       = $contractAddr;
         $value    = '0';
-        $data     = '0xac8e26d0' . $owner . $offset . $lenName . $name . $lencord1 . $cord1 . $lencord2 . $cord2 . $lencord3 . $cord3 . $lencord4 . $cord4;
-
+//        $data     = '0xac8e26d0' . $owner . $offset . $lenName . $name . $lencord1 . $cord1 . $lencord2 . $cord2 . $lencord3 . $cord3 . $lencord4 . $cord4;
+        $data     = '0xdb165a76' . $owner . $id;
 
         $transaction = new Transaction($nonce, $gasPrice, $gasLimit, $to, $value, $data);
         $rawTx = $transaction->getRaw($privateKey, $chainID);
