@@ -1,14 +1,3 @@
-
-function hexdec(hexString) {
-    hexString = (hexString + '').replace(/[^a-f0-9]/gi, '')
-    return parseInt(hexString, 16)
-}
-
-function setResultBlock(blockNumber, val){
-    resultBlock = blockNumber;
-    ticketVal = val;
-}
-
 $(document).ready(function () {
 
 
