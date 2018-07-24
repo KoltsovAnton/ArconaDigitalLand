@@ -1,5 +1,34 @@
 pragma solidity ^0.4.24;
 
+library SafeMath {
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        if (a == 0) {
+            return 0;
+        }
+        uint256 c = a * b;
+        assert(c / a == b);
+        return c;
+    }
+
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        // assert(b > 0); // Solidity automatically throws when dividing by 0
+        uint256 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+        return c;
+    }
+
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        assert(b <= a);
+        return a - b;
+    }
+
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        assert(c >= a);
+        return c;
+    }
+}
+
 contract ERC721Interface {
     //ERC721
     function balanceOf(address owner) public view returns (uint256 _balance);
@@ -87,6 +116,7 @@ contract Ownable {
 
 
 contract AuctionContract is Ownable {
+    using SafeMath for uint;
 
     ERC20 public arconaToken;
 
@@ -103,55 +133,42 @@ contract AuctionContract is Ownable {
     }
 
     mapping(address => bool) public acceptedTokens;
+    mapping(address => bool) public whiteList;
+    mapping (address => bool) public users;
     mapping(uint256 => Auction) public auctions;
     //token => token_id = auction id
     mapping (address => mapping (uint => uint)) public auctionIndex;
     mapping(address => uint256[]) private ownedAuctions;
     uint private lastAuctionId;
     uint defaultExecuteTime = 3 days;
+    uint public auctionFee = 300; //3%
+    uint public gasInTokens = 1000000000000000000;
+    uint public minDuration = 1;
+    uint public maxDuration = 14;
+    address public profitAddress;
 
     event ReceiveCreateAuction(address from, uint tokenId, address token);
     event AddAcceptedToken(address indexed token);
     event DelAcceptedToken(address indexed token);
+    event AddWhiteList(address indexed addr);
+    event DelWhiteList(address indexed addr);
     event NewAuction(address indexed owner, uint tokenId, uint auctionId);
+    event AddUser(address indexed user);
 
-
-    constructor(address _token) public {
+    constructor(address _token, address _profitAddress) public {
         arconaToken = ERC20(_token);
+        profitAddress = _profitAddress;
     }
 
 
-    function () public payable {
-        revert();
-    }
-
-
-    function addAcceptedToken(address _token) onlyAdmin external {
-        require(_token != address(0));
-        acceptedTokens[_token] = true;
-        emit AddAcceptedToken(_token);
-    }
-
-
-    function delAcceptedToken(address _token) onlyAdmin external {
-        require(acceptedTokens[_token]);
-        acceptedTokens[_token] = false;
-        emit DelAcceptedToken(_token);
-    }
-
-
-    function setDefaultExecuteTime(uint _days) onlyAdmin external {
-        defaultExecuteTime = _days * 1 days;
-    }
-
-
-    function isAcceptedToken(address _token) public view returns (bool) {
-        return acceptedTokens[_token];
+    function() public payable {
+        users[msg.sender] = true;
     }
 
 
     function receiveCreateAuction(address _from, uint _tokenId, address _token, uint _startPrice, uint _duration) public {
         require(isAcceptedToken(_token));
+        require(_duration >= minDuration && _duration <= maxDuration);
         _createAuction(_from, _token, _tokenId, _startPrice, _duration);
         emit ReceiveCreateAuction(_from, _tokenId, _token);
     }
@@ -182,12 +199,12 @@ contract AuctionContract is Ownable {
 
     function setWinner(address _winner, uint _auctionId, uint _finalPrice, uint _executeTime) onlyAdmin external {
         require(now > auctions[_auctionId].stopTime);
-        require(auctions[_auctionId].winner == address(0));
+        //require(auctions[_auctionId].winner == address(0));
         require(_finalPrice >= auctions[_auctionId].startPrice);
         auctions[_auctionId].winner = _winner;
         auctions[_auctionId].finalPrice = _finalPrice;
         if (_executeTime > 0) {
-            auctions[_auctionId].executeTime = _executeTime;
+            auctions[_auctionId].executeTime = _executeTime * 1 days;
         }
     }
 
@@ -195,15 +212,23 @@ contract AuctionContract is Ownable {
     function getToken(uint _auctionId) external {
         require(now <= auctions[_auctionId].executeTime);
         require(msg.sender == auctions[_auctionId].winner);
-        require(arconaToken.transferFrom(msg.sender, this, auctions[_auctionId].finalPrice));
-        //TODO FEE
+
+        uint fullPrice = auctions[_auctionId].finalPrice;
+        require(arconaToken.transferFrom(msg.sender, this, fullPrice));
+
+        if (!inWhiteList(msg.sender)) {
+            uint fee = valueFromPercent(fullPrice, auctionFee);
+            fullPrice = fullPrice.sub(fee).sub(gasInTokens);
+        }
+        arconaToken.transfer(auctions[_auctionId].owner, fullPrice);
+
         require(ERC721Interface(auctions[_auctionId].token).transfer(auctions[_auctionId].winner, auctions[_auctionId].tokenId));
     }
 
-    //TODO условия отменя
+
     function cancelAuction(uint _auctionId) external {
         require(msg.sender == auctions[_auctionId].owner);
-        require(now > auctions[_auctionId].stopTime);
+        require(now > auctions[_auctionId].executeTime);
 
         require(ERC721Interface(auctions[_auctionId].token).transfer(auctions[_auctionId].owner, auctions[_auctionId].tokenId));
     }
@@ -216,5 +241,86 @@ contract AuctionContract is Ownable {
 
     function auctionsOf(address _owner) external view returns (uint256[]) {
         return ownedAuctions[_owner];
+    }
+
+
+    function addAcceptedToken(address _token) onlyAdmin external {
+        require(_token != address(0));
+        acceptedTokens[_token] = true;
+        emit AddAcceptedToken(_token);
+    }
+
+
+    function delAcceptedToken(address _token) onlyAdmin external {
+        require(acceptedTokens[_token]);
+        acceptedTokens[_token] = false;
+        emit DelAcceptedToken(_token);
+    }
+
+
+    function addWhiteList(address _address) onlyAdmin external {
+        require(_address != address(0));
+        whiteList[_address] = true;
+        emit AddWhiteList(_address);
+    }
+
+
+    function delWhiteList(address _address) onlyAdmin external {
+        require(whiteList[_address]);
+        whiteList[_address] = false;
+        emit DelWhiteList(_address);
+    }
+
+
+    function setDefaultExecuteTime(uint _days) onlyAdmin external {
+        defaultExecuteTime = _days * 1 days;
+    }
+
+
+    function setAuctionFee(uint _fee) onlyAdmin external {
+        auctionFee = _fee;
+    }
+
+
+    function setGasInTokens(uint _gasInTokens) onlyAdmin external {
+        gasInTokens = _gasInTokens;
+    }
+
+
+    function setMinDuration(uint _minDuration) onlyAdmin external {
+        minDuration = _minDuration;
+    }
+
+
+    function setMaxDuration(uint _maxDuration) onlyAdmin external {
+        maxDuration = _maxDuration;
+    }
+
+
+    function setProfitAddress(address _profitAddress) onlyOwner external {
+        require(_profitAddress != address(0));
+        profitAddress = _profitAddress;
+    }
+
+
+    function isAcceptedToken(address _token) public view returns (bool) {
+        return acceptedTokens[_token];
+    }
+
+
+    function inWhiteList(address _address) public view returns (bool) {
+        return whiteList[_address];
+    }
+
+
+    function withdrawTokens() onlyAdmin public {
+        require(arconaToken.balanceOf(this) > 0);
+        arconaToken.transfer(profitAddress, arconaToken.balanceOf(this));
+    }
+
+    //1% - 100, 10% - 1000 50% - 5000
+    function valueFromPercent(uint _value, uint _percent) internal pure returns (uint amount)    {
+        uint _amount = _value.mul(_percent).div(10000);
+        return (_amount);
     }
 }
