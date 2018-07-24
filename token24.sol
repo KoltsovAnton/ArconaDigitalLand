@@ -86,6 +86,8 @@ contract Ownable {
     }
 }
 
+
+
 contract LandTokenInterface {
     //ERC721
     function balanceOf(address _owner) public view returns (uint256 _balance);
@@ -98,6 +100,11 @@ contract LandTokenInterface {
     function allowance(address _claimant, uint256 _landId) public view returns (bool);
     function transferFrom(address _from, address _to, uint256 _landId) public;
     function createLand(address _owner) external returns (uint);
+}
+
+interface tokenRecipient {
+    function receiveApproval(address _from, uint _value, address _token, bytes _extraData) public;
+    function receiveCreateAuction(address msg.sender, uint _landId, address _token, uint _startPrice, uint _duration) public;
 }
 
 contract LandBase is Ownable {
@@ -195,11 +202,30 @@ contract LandBase is Ownable {
     * @param _to address to be approved for the given land ID
     * @param _landId uint256 ID of the land to be approved
     */
-    function approve(address _to, uint256 _landId) public onlyOwnerOf(_landId) {
+    function approve(address _to, uint256 _landId) public onlyOwnerOf(_landId) returns (bool) {
         require(_to != msg.sender);
         if (approvedFor(_landId) != address(0) || _to != address(0)) {
             landApprovals[_landId] = _to;
             emit Approval(msg.sender, _to, _landId);
+            return true;
+        }
+    }
+
+
+    function approveAndCall(address _spender, uint256 _landId, bytes _extraData) public returns (bool) {
+        tokenRecipient spender = tokenRecipient(_spender);
+        if (approve(_spender, _landId)) {
+            spender.receiveApproval(msg.sender, _landId, this, _extraData);
+            return true;
+        }
+    }
+
+
+    function createAuction(address _auction, uint _landId, uint _startPrice, uint _duration) public returns (bool) {
+        tokenRecipient auction = tokenRecipient(_auction);
+        if (approve(_auction, _landId)) {
+            auction.receiveCreateAuction(msg.sender, _landId, this, _startPrice, _duration);
+            return true;
         }
     }
 
@@ -217,8 +243,9 @@ contract LandBase is Ownable {
     * @param _to address to receive the ownership of the given land ID
     * @param _landId uint256 ID of the land to be transferred
     */
-    function transfer(address _to, uint256 _landId) public onlyOwnerOf(_landId) {
+    function transfer(address _to, uint256 _landId) public onlyOwnerOf(_landId) returns (bool) {
         clearApprovalAndTransfer(msg.sender, _to, _landId);
+        return true;
     }
 
 
@@ -291,7 +318,7 @@ contract LandBase is Ownable {
     }
 
 
-    function createLand(address _owner, uint _id) onlyOwner external returns (uint) {
+    function createLand(address _owner, uint _id) onlyOwner public returns (uint) {
         require(_owner != address(0));
         uint256 _landId = lastLandId++;
         addLand(_owner, _landId);
@@ -303,16 +330,24 @@ contract LandBase is Ownable {
         return _landId;
     }
 
+    function createLandAndAuction(address _owner, uint _id, address _auction, uint _landId,
+                                  uint _startPrice, uint _duration) onlyOwner public
+    {
+        createLand(_owner, _id);
+        require(createAuction(_auction, _landId, _startPrice, _duration));
+    }
+
 
     function owns(address _claimant, uint256 _landId) public view returns (bool) {
         return ownerOf(_landId) == _claimant && ownerOf(_landId) != address(0);
     }
 
 
-    function transferFrom(address _from, address _to, uint256 _landId) public {
+    function transferFrom(address _from, address _to, uint256 _landId) public returns (bool) {
         require(_to != address(this));
         require(allowance(msg.sender, _landId));
         clearApprovalAndTransfer(_from, _to, _landId);
+        return true;
     }
 
 }
