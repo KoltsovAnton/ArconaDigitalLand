@@ -40,10 +40,10 @@ contract Ownable {
     );
 
 
-/**
- * @dev The Ownable constructor sets the original `owner` of the contract to the sender
- * account.
- */
+    /**
+     * @dev The Ownable constructor sets the original `owner` of the contract to the sender
+     * account.
+     */
     constructor() public {
         owner = msg.sender;
     }
@@ -103,8 +103,9 @@ contract LandTokenInterface {
 }
 
 interface tokenRecipient {
-    function receiveApproval(address _from, uint _value, address _token, bytes _extraData) public;
-    function receiveCreateAuction(address msg.sender, uint _landId, address _token, uint _startPrice, uint _duration) public;
+    function receiveApproval(address _from, address _token, uint _value, bytes _extraData) external;
+    function receiveCreateAuction(address _from, address _token, uint _landId, uint _startPrice, uint _duration) external;
+    function receiveCreateAuctionFromArray(address _from, address _token, uint[] _landIds, uint _startPrice, uint _duration) external;
 }
 
 contract LandBase is Ownable {
@@ -112,6 +113,7 @@ contract LandBase is Ownable {
 
     event Transfer(address indexed from, address indexed to, uint256 landId);
     event Approval(address indexed owner, address indexed approved, uint256 landId);
+    event NewLand(address indexed owner, uint256 landId);
 
     struct Land {
         uint id;
@@ -215,7 +217,7 @@ contract LandBase is Ownable {
     function approveAndCall(address _spender, uint256 _landId, bytes _extraData) public returns (bool) {
         tokenRecipient spender = tokenRecipient(_spender);
         if (approve(_spender, _landId)) {
-            spender.receiveApproval(msg.sender, _landId, this, _extraData);
+            spender.receiveApproval(msg.sender, this, _landId, _extraData);
             return true;
         }
     }
@@ -224,9 +226,20 @@ contract LandBase is Ownable {
     function createAuction(address _auction, uint _landId, uint _startPrice, uint _duration) public returns (bool) {
         tokenRecipient auction = tokenRecipient(_auction);
         if (approve(_auction, _landId)) {
-            auction.receiveCreateAuction(msg.sender, _landId, this, _startPrice, _duration);
+            auction.receiveCreateAuction(msg.sender, this, _landId, _startPrice, _duration);
             return true;
         }
+    }
+
+
+    function createAuctionFromArray(address _auction, uint[] _landIds, uint _startPrice, uint _duration) public returns (bool) {
+        tokenRecipient auction = tokenRecipient(_auction);
+
+        for (uint i = 0; i < _landIds.length; ++i)
+            require(approve(_auction, _landIds[i]));
+
+        auction.receiveCreateAuctionFromArray(msg.sender, this, _landIds, _startPrice, _duration);
+        return true;
     }
 
     /**
@@ -325,16 +338,16 @@ contract LandBase is Ownable {
         //store new land data
         lands[_landId] = Land({
             id : _id
-        });
+            });
         emit Transfer(address(0), _owner, _landId);
+        emit NewLand(_owner, _landId);
         return _landId;
     }
 
-    function createLandAndAuction(address _owner, uint _id, address _auction, uint _landId,
-                                  uint _startPrice, uint _duration) onlyOwner public
+    function createLandAndAuction(address _owner, uint _id, address _auction, uint _startPrice, uint _duration) onlyOwner public
     {
-        createLand(_owner, _id);
-        require(createAuction(_auction, _landId, _startPrice, _duration));
+        uint id = createLand(_owner, _id);
+        require(createAuction(_auction, id, _startPrice, _duration));
     }
 
 

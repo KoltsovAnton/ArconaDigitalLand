@@ -130,6 +130,7 @@ contract AuctionContract is Ownable {
         address winner;
         uint executeTime;
         uint finalPrice;
+        bool executed;
     }
 
     mapping(address => bool) public acceptedTokens;
@@ -144,7 +145,7 @@ contract AuctionContract is Ownable {
     uint public auctionFee = 300; //3%
     uint public gasInTokens = 1000000000000000000;
     uint public minDuration = 1;
-    uint public maxDuration = 14;
+    uint public maxDuration = 336;
     address public profitAddress;
 
     event ReceiveCreateAuction(address from, uint tokenId, address token);
@@ -166,11 +167,18 @@ contract AuctionContract is Ownable {
     }
 
 
-    function receiveCreateAuction(address _from, uint _tokenId, address _token, uint _startPrice, uint _duration) public {
+    function receiveCreateAuction(address _from, address _token, uint _tokenId, uint _startPrice, uint _duration) public {
         require(isAcceptedToken(_token));
         require(_duration >= minDuration && _duration <= maxDuration);
         _createAuction(_from, _token, _tokenId, _startPrice, _duration);
         emit ReceiveCreateAuction(_from, _tokenId, _token);
+    }
+
+
+    function createAuction(address _token, uint _tokenId, uint _startPrice, uint _duration) external {
+        require(isAcceptedToken(_token));
+        require(_duration >= minDuration && _duration <= maxDuration);
+        _createAuction(msg.sender, _token, _tokenId, _startPrice, _duration);
     }
 
 
@@ -183,10 +191,11 @@ contract AuctionContract is Ownable {
             tokenId : _tokenId,
             startPrice : _startPrice,
             //startTime : now,
-            stopTime : now + (_duration * 1 days),
+            stopTime : now + (_duration * 1 hours),
             winner : address(0),
-            executeTime : now + (_duration * 1 days) + defaultExecuteTime,
-            finalPrice : 0
+            executeTime : now + (_duration * 1 hours) + defaultExecuteTime,
+            finalPrice : 0,
+            executed : false
             });
 
         auctionIndex[_token][_tokenId] = lastAuctionId;
@@ -198,18 +207,20 @@ contract AuctionContract is Ownable {
 
 
     function setWinner(address _winner, uint _auctionId, uint _finalPrice, uint _executeTime) onlyAdmin external {
+        require(!auctions[_auctionId].executed);
         require(now > auctions[_auctionId].stopTime);
         //require(auctions[_auctionId].winner == address(0));
         require(_finalPrice >= auctions[_auctionId].startPrice);
         auctions[_auctionId].winner = _winner;
         auctions[_auctionId].finalPrice = _finalPrice;
         if (_executeTime > 0) {
-            auctions[_auctionId].executeTime = _executeTime * 1 days;
+            auctions[_auctionId].executeTime = now + (_executeTime * 1 hours);
         }
     }
 
 
     function getToken(uint _auctionId) external {
+        require(!auctions[_auctionId].executed);
         require(now <= auctions[_auctionId].executeTime);
         require(msg.sender == auctions[_auctionId].winner);
 
@@ -223,10 +234,12 @@ contract AuctionContract is Ownable {
         arconaToken.transfer(auctions[_auctionId].owner, fullPrice);
 
         require(ERC721Interface(auctions[_auctionId].token).transfer(auctions[_auctionId].winner, auctions[_auctionId].tokenId));
+        auctions[_auctionId].executed = true;
     }
 
 
     function cancelAuction(uint _auctionId) external {
+        require(!auctions[_auctionId].executed);
         require(msg.sender == auctions[_auctionId].owner);
         require(now > auctions[_auctionId].executeTime);
 
@@ -272,8 +285,8 @@ contract AuctionContract is Ownable {
     }
 
 
-    function setDefaultExecuteTime(uint _days) onlyAdmin external {
-        defaultExecuteTime = _days * 1 days;
+    function setDefaultExecuteTime(uint _hours) onlyAdmin external {
+        defaultExecuteTime = _hours * 1 hours;
     }
 
 
