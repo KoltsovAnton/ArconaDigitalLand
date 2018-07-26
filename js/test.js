@@ -12,6 +12,26 @@ $(document).ready(function () {
         console.log(user);
     };
 
+
+    //////////////////////////////////////////
+
+    let overrideOptions = {
+        gasLimit: 60000
+    };
+
+    //кому апрувим (должен быть адрес аукциона)
+    let spender = '0x96a65fe23916ebe43426f3e86e487993cf379771';
+    //сколько апрувим
+    let value = 1000000000000000000;
+
+    contract.approve(spender, value, overrideOptions).then(tx=> {
+        console.log('Транзакция ушла', tx)
+
+        provider.waitForTransaction(tx.hash).then(tx=> {
+            console.log('Транзакция смайнилась',tx);
+        })
+    })
+
 });
 
 
