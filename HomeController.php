@@ -32,7 +32,7 @@ class HomeController
         $privateKey = '';
 
         //Адрес контракта токена
-        $contractAddr = '0xdf4d691c84519caf7de74281fe57f60740c23d77';
+        $contractAddr = '0x91845cf0177be2824bbf0b4a9244166cccc53d19';
 
         //параметры для метода createLand
         $owner = $this->createAddrParam('0x02A3D45252Fa254bA7Bb42C5D8D3ED2c0FCdC8Df');
@@ -73,6 +73,105 @@ class HomeController
         $value    = '0';
 //        $data     = '0xac8e26d0' . $owner . $offset . $lenName . $name . $lencord1 . $cord1 . $lencord2 . $cord2 . $lencord3 . $cord3 . $lencord4 . $cord4;
         $data     = '0xdb165a76' . $owner . $id;
+
+        $transaction = new Transaction($nonce, $gasPrice, $gasLimit, $to, $value, $data);
+        $rawTx = $transaction->getRaw($privateKey, $chainID);
+
+        $res = $rpc->request('eth_sendRawTransaction','0x'.$rawTx);
+
+
+        if (isset($res['error'])) {
+            return $res;
+        }
+
+        if(preg_match('/[a-f0-9]+/', $res['result'])) {
+            return $res['result'];
+        }
+
+        return $res;
+    }
+
+
+    public function createLandAndAuction()
+    {
+
+        //адрес и приватный ключ от которого отправляется транзакция.
+        $addressFrom = '';
+        $privateKey = '';
+
+        //Адрес контракта токена
+        $contractAddr = '0x91845cf0177be2824bbf0b4a9244166cccc53d19';
+
+        //параметры для метода createLandAndAuction
+        $owner = $this->createAddrParam('0x02A3D45252Fa254bA7Bb42C5D8D3ED2c0FCdC8Df');
+        $id = $this->createParam(dechex(123));
+        $auction = $this->createAddrParam('0x7b41505c3bbfb7120e64c15619c54f76f17ef3d8');
+        $startPrice = $this->createParam(dechex(1));
+        $duration = $this->createParam(dechex(1));
+
+        $rpc = new JSON_RPC('https://rinkeby.infura.io/oLaEtrL2ogdAD8qZpXk2');
+
+        $chainID = 4;
+
+        $nonce = $rpc->request('eth_getTransactionCount',$addressFrom,'latest');
+        $nonce['result'] = $nonce['result'] == '0x0' ? '' : $nonce['result'];
+        $gasPrice = $rpc->request('eth_gasPrice');
+
+        $nonce    = $nonce['result'];
+        $gasPrice = $gasPrice['result'];
+        $gasLimit = '0x493E0';
+        $to       = $contractAddr;
+        $value    = '0';
+        $data     = '0xf4c2ebdd' . $owner . $id . $auction . $startPrice . $duration;
+
+        $transaction = new Transaction($nonce, $gasPrice, $gasLimit, $to, $value, $data);
+        $rawTx = $transaction->getRaw($privateKey, $chainID);
+
+        $res = $rpc->request('eth_sendRawTransaction','0x'.$rawTx);
+
+
+        if (isset($res['error'])) {
+            return $res;
+        }
+
+        if(preg_match('/[a-f0-9]+/', $res['result'])) {
+            return $res['result'];
+        }
+
+        return $res;
+    }
+
+
+    public function setWinner()
+    {
+
+        //адрес и приватный ключ от которого отправляется транзакция.
+        $addressFrom = '';
+        $privateKey = '';
+
+        //Адрес контракта токена
+        $contractAddr = '0x7b41505c3bbfb7120e64c15619c54f76f17ef3d8';
+
+        //параметры для метода createLandAndAuction
+        $winner = $this->createAddrParam('0x02A3D45252Fa254bA7Bb42C5D8D3ED2c0FCdC8Df');
+        $auctionId = $this->createParam(dechex(123));
+        $finalPrice = $this->createParam(dechex(1));
+        $executeTime = $this->createParam(dechex(1));
+
+        $rpc = new JSON_RPC('https://rinkeby.infura.io/oLaEtrL2ogdAD8qZpXk2');
+
+        $chainID = 4;
+
+        $nonce = $rpc->request('eth_getTransactionCount',$addressFrom,'latest');
+        $nonce['result'] = $nonce['result'] == '0x0' ? '' : $nonce['result'];
+        $gasPrice = $rpc->request('eth_gasPrice');
+
+        $nonce    = $nonce['result'];
+        $gasPrice = $gasPrice['result'];
+        $gasLimit = '0x493E0';
+        $to       = $contractAddr;
+        $value    = '0';
+        $data     = '0x1da83550' . $winner . $auctionId . $finalPrice . $executeTime;
 
         $transaction = new Transaction($nonce, $gasPrice, $gasLimit, $to, $value, $data);
         $rawTx = $transaction->getRaw($privateKey, $chainID);
