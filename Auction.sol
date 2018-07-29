@@ -155,6 +155,9 @@ contract AuctionContract is Ownable {
     event DelWhiteList(address indexed addr);
     event NewAuction(address indexed owner, uint tokenId, uint auctionId);
     event AddUser(address indexed user);
+    event GetToken(uint auctionId, address winner);
+    event SetWinner(address winner, uint auctionId, uint finalPrice, uint executeTime);
+    event CancelAuction(uint auctionId);
 
     constructor(address _token, address _profitAddress) public {
         arconaToken = ERC20(_token);
@@ -216,6 +219,7 @@ contract AuctionContract is Ownable {
         if (_executeTime > 0) {
             auctions[_auctionId].executeTime = now + (_executeTime * 1 hours);
         }
+        emit SetWinner(_winner, _auctionId, _finalPrice, _executeTime);
     }
 
 
@@ -235,6 +239,7 @@ contract AuctionContract is Ownable {
 
         require(ERC721Interface(auctions[_auctionId].token).transfer(auctions[_auctionId].winner, auctions[_auctionId].tokenId));
         auctions[_auctionId].executed = true;
+        emit GetToken(_auctionId, msg.sender);
     }
 
 
@@ -244,6 +249,7 @@ contract AuctionContract is Ownable {
         require(now > auctions[_auctionId].executeTime);
 
         require(ERC721Interface(auctions[_auctionId].token).transfer(auctions[_auctionId].owner, auctions[_auctionId].tokenId));
+        emit CancelAuction(_auctionId);
     }
 
 
