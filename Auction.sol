@@ -131,6 +131,7 @@ contract AuctionContract is Ownable {
         uint executeTime;
         uint finalPrice;
         bool executed;
+//        bool exists;
     }
 
     mapping(address => bool) public acceptedTokens;
@@ -166,7 +167,10 @@ contract AuctionContract is Ownable {
 
 
     function() public payable {
-        users[msg.sender] = true;
+        if (!users[msg.sender]) {
+            users[msg.sender] = true;
+            emit AddUser(msg.sender);
+        }
     }
 
 
@@ -199,6 +203,7 @@ contract AuctionContract is Ownable {
             executeTime : now + (_duration * 1 hours) + defaultExecuteTime,
             finalPrice : 0,
             executed : false
+//            exists: true
             });
 
         auctionIndex[_token][_tokenId] = lastAuctionId;
@@ -210,6 +215,7 @@ contract AuctionContract is Ownable {
 
 
     function setWinner(address _winner, uint _auctionId, uint _finalPrice, uint _executeTime) onlyAdmin external {
+//        require(auctions[_auctionId].exists);
         require(!auctions[_auctionId].executed);
         require(now > auctions[_auctionId].stopTime);
         //require(auctions[_auctionId].winner == address(0));
@@ -224,6 +230,7 @@ contract AuctionContract is Ownable {
 
 
     function getToken(uint _auctionId) external {
+//        require(auctions[_auctionId].exists);
         require(!auctions[_auctionId].executed);
         require(now <= auctions[_auctionId].executeTime);
         require(msg.sender == auctions[_auctionId].winner);
@@ -244,6 +251,7 @@ contract AuctionContract is Ownable {
 
 
     function cancelAuction(uint _auctionId) external {
+//        require(auctions[_auctionId].exists);
         require(!auctions[_auctionId].executed);
         require(msg.sender == auctions[_auctionId].owner);
         require(now > auctions[_auctionId].executeTime);
